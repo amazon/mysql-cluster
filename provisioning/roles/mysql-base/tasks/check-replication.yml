@@ -1,0 +1,42 @@
+---
+
+- name: generate unique string
+  command: uuidgen
+  delegate_to: "{{ replication_master }}"
+  run_once: true
+  register: uuid
+  changed_when: false
+
+- name: import test data on master
+  delegate_to: "{{ replication_master }}"
+  run_once: true
+  command: mysql -NBe
+    "DROP DATABASE IF EXISTS `test`;
+    CREATE DATABASE `test`;
+    USE `test`;
+    DROP TABLE IF EXISTS `test`;
+    CREATE TABLE `test` (
+        `id` int(11) DEFAULT NULL,
+        `name` text
+      ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+    INSERT INTO `test` VALUES (0,'{{ uuid.stdout }}');"
+  register: test_result
+  changed_when: false
+
+- name: check data is replicated on slave(s)
+  command: mysql -NBe "USE test; SELECT name FROM test WHERE id=0;"
+  register: query_result
+  when:
+    - ansible_hostname != replication_master
+  changed_when: false
+  ignore_errors: yes
+
+- assert:
+    that: query_result.stdout == "{{ uuid.stdout }}"
+
+- name: drop test database on master
+  delegate_to: "{{ replication_master }}"
+  run_once: true
+  command: mysql -NBe "DROP DATABASE IF EXISTS `test`;"
+  when: test_result.rc == 0
+  changed_when: false

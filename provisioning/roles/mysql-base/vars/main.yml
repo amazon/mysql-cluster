@@ -1,0 +1,4 @@
+---
+# vars file for mysql-base
+
+replica_admin_name: replica_admin

@@ -1,0 +1,10 @@
+---
+
+- name: Update the /etc/hosts file with node name
+  lineinfile:
+    path: /etc/hosts
+    regexp: '.*{{ item }}$'
+    line: "{{ hostvars[item].ansible_eth1.ipv4.address }} {{item}}"
+    state: present
+  when: hostvars[item].ansible_host is defined
+  with_items: "{{ groups['all'] }}"

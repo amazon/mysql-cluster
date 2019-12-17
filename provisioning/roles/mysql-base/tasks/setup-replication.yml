@@ -1,0 +1,47 @@
+---
+
+# - name: get replication master
+#   set_fact: replication_master="{{ item }}"
+#   when: hostvars[item].replication_role is defined and hostvars[item].replication_role == 'master'
+#   with_items: "{{ groups['all'] }}"
+
+# - debug:
+#     msg: "master: {{ replication_master }}"
+#     verbosity: 2
+
+- name: get replication slave status
+  mysql_replication:
+    mode: getslave
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  register: slave_status
+
+- name: get replication master status
+  delegate_to: "{{ replication_master }}"
+  run_once: true
+  register: master_status
+  mysql_replication:
+    mode: getmaster
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+
+- name: configure replication on the slave
+  mysql_replication:
+    mode: changemaster
+    master_host: "{{ replication_master }}"
+    master_user: "{{ replica_admin_name }}"
+    master_password: "{{ lookup('password', 'credentials/replica_admin_password.txt') }}"
+    master_log_file: "{{ master_status.File }}"
+    master_log_pos: "{{ master_status.Position }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  ignore_errors: true
+  when:
+    - (slave_status.Is_Slave is defined and not slave_status.Is_Slave)
+      or (configuration_changed is defined and configuration_changed)
+    - master_status.Is_Master is defined and master_status.Is_Master
+  register: replication_status
+
+- name: start slave
+  mysql_replication:
+    mode: startslave
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  when:
+    - slave_status.Slave_IO_Running is defined and slave_status.Slave_IO_Running != "Yes"

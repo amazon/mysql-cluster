@@ -1,0 +1,23 @@
+---
+
+- name: stop replication
+  mysql_replication:
+    mode: stopslave
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  when:
+    - slave_status.Is_Slave is defined and slave_status.Is_Slave
+
+- name: reset replication slave on new master
+  mysql_replication:
+    mode: resetslaveall
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  when:
+    - replication_role is defined and replication_role  == 'master'
+
+# using `command` module because `mysql_replication` module does not yet support `resetmaster`
+# see this PR https://github.com/ansible/ansible/pull/63321
+# TO-DO: move to `mysql_replication` module
+- name: reset master
+  command: mysql -NBe "RESET MASTER;"
+  when:
+    - replication_role is defined and replication_role  == 'master'

@@ -1,0 +1,105 @@
+---
+# tasks file for mysql-base
+
+- include_tasks: configure-system.yml
+
+- include_tasks: install-packages.yml
+
+- name: start service
+  service:
+    name: mysql
+    state: started
+
+- debug:
+    msg: "replication role: {{ replication_role }}"
+    verbosity: 1
+
+- name: get replication master
+  set_fact:
+    replication_master: "{{ item }}"
+  when: hostvars[item].replication_role is defined and hostvars[item].replication_role == 'master'
+  with_items: "{{ groups['all'] }}"
+
+- debug:
+    msg: "master: {{ replication_master }}"
+    verbosity: 1
+
+- name: get replication slave status
+  mysql_replication:
+    mode: getslave
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  register: slave_status
+
+- debug:
+    msg: "{{ slave_status }}"
+    verbosity: 1
+
+- name: get replication master status
+  mysql_replication:
+    mode: getslave
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  delegate_to: "{{ replication_master }}"
+  run_once: true
+  register: master_slave_status
+
+- name: check if cluster configuration changed
+  set_fact:
+    configuration_changed: true
+  when:
+    - master_slave_status.Is_Slave is defined and master_slave_status.Is_Slave
+
+- debug:
+    msg: cluster configuration change detected
+    verbosity: 1
+  when: 
+    - configuration_changed is defined and configuration_changed
+
+- name: generate config
+  template:
+    src: my.cnf.j2
+    dest: /etc/mysql/my.cnf
+    owner: root
+    group: root
+    mode: 0644
+    force: true
+  register: my_cnf
+
+- name: restart mysql
+  service:
+    name: mysql
+    state: restarted
+  when:
+    - my_cnf.changed
+    - configuration_changed is not defined
+
+- include_tasks: reset-replication.yml
+  when:
+    - configuration_changed is defined and configuration_changed
+
+- name: restart mysql on master node
+  service:
+    name: mysql
+    state: restarted
+  when:
+    - my_cnf.changed
+    - replication_role is defined and replication_role  == 'master'
+
+- include_tasks: setup-master.yml
+  when:
+    - replication_role is defined and replication_role  == 'master'
+
+- include_tasks: setup-replication.yml
+  when:
+    - replication_role is defined and replication_role  == 'slave'
+
+- name: restart mysql on slave nodes
+  service:
+    name: mysql
+    state: restarted
+  when:
+    - my_cnf.changed
+    - replication_role is defined and replication_role  == 'slave'
+
+- include_tasks: check-replication.yml
+  when:
+    - replication_role is defined and replication_role  == 'slave'

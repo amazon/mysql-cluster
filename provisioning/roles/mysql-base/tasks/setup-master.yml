@@ -1,0 +1,10 @@
+---
+
+- name: add replication admin user with random passwords
+  mysql_user:
+    name: "{{ replica_admin_name }}"
+    host: "%"
+    password: "{{ lookup('password', 'credentials/replica_admin_password.txt') }}"
+    priv: '*.*:REPLICATION SLAVE,REPLICATION CLIENT'
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock

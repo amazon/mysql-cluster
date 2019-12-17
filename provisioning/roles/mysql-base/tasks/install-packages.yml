@@ -1,0 +1,10 @@
+---
+- name: install mysql server
+  package:
+    name: mysql-server
+    state: present
+
+- name: install PyMySQL
+  package:
+    name: python-pymysql
+    state: present
