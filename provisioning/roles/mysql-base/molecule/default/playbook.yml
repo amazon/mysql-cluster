@@ -1,5 +1,9 @@
 ---
 - name: Converge
   hosts: all
+  vars:
+    replication_role: master
+    replication_master: ubuntu
+    server_id: 1
   roles:
     - role: mysql-base
