@@ -1,7 +1,7 @@
 ---
 
 - name: generate unique string
-  command: uuidgen
+  command: python -c "import uuid; print(uuid.uuid1())"
   delegate_to: "{{ replication_master }}"
   run_once: true
   register: uuid
@@ -23,7 +23,7 @@
   register: test_result
   changed_when: false
 
-- name: check data is replicated on slave(s)
+- name: make request on slave(s)
   command: mysql -NBe "USE test; SELECT name FROM test WHERE id=0;"
   register: query_result
   when:
@@ -31,7 +31,8 @@
   changed_when: false
   ignore_errors: yes
 
-- assert:
+- name: check query result
+  assert:
     that: query_result.stdout == "{{ uuid.stdout }}"
 
 - name: drop test database on master

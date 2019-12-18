@@ -51,7 +51,7 @@
 - debug:
     msg: cluster configuration change detected
     verbosity: 1
-  when: 
+  when:
     - configuration_changed is defined and configuration_changed
 
 - name: generate config
@@ -71,6 +71,8 @@
   when:
     - my_cnf.changed
     - configuration_changed is not defined
+  tags:
+  - skip_ansible_lint
 
 - include_tasks: reset-replication.yml
   when:
@@ -83,6 +85,8 @@
   when:
     - my_cnf.changed
     - replication_role is defined and replication_role  == 'master'
+  tags:
+  - skip_ansible_lint
 
 - include_tasks: setup-master.yml
   when:
@@ -99,6 +103,8 @@
   when:
     - my_cnf.changed
     - replication_role is defined and replication_role  == 'slave'
+  tags:
+  - skip_ansible_lint
 
 - include_tasks: check-replication.yml
   when:
